@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # 1. System-Pakete aktualisieren und installieren
 sudo apt update
@@ -16,4 +17,19 @@ if [ -f .env ]; then
         cp /tmp/pixelwise-model/MODELCARD.md models/
         rm -rf /tmp/pixelwise-model
     fi
+fi
+
+# Provision the pixelwise role and database on every VM
+if command -v psql >/dev/null 2>&1 && \
+   [ -f "$SCRIPT_DIR/.env" ]; then
+    set -a; source "$SCRIPT_DIR/.env"; set +a
+    
+    sudo -u postgres psql -tAc \
+        "SELECT 1 FROM pg_roles WHERE rolname='pixelwise'" | grep -q 1 || \
+    sudo -u postgres psql -c \
+        "CREATE USER pixelwise WITH PASSWORD '$DB_PASSWORD';"
+        
+    sudo -u postgres psql -tAc \
+        "SELECT 1 FROM pg_database WHERE datname='pixelwise'" | grep -q 1 || \
+    sudo -u postgres createdb -O pixelwise pixelwise
 fi
